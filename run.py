@@ -41,8 +41,9 @@ for pdp in PERCENTS:
                 d['pf_bpp'] = pfBpp
                 d['merge'] = merge
                 d['binName'] = binName
-                d['bin'] = "merge.bin" # name(d)
+                d['bin'] = binName+".bin" # name(d)
                 gcc = "gcc -Wall -O3 -std=c99 -march=core2 -msse4.2 -DPERCENT_DIFF_PAGES=%(pdp)d -DPERCENT_DIFF_BYTES_PER_PAGE=%(pdbpp)d %(prefetch)s -DPREFETCH_PAGES=%(pf_pages)d -DPREFETCH_BYTES_PER_PAGE=%(pf_bpp)d %(merge)s merge.c -o %(bin)s" % d
+                #gcc = "gcc -Wall -O3 -std=c99 -march=core2 -msse4.2 -DPERCENT_DIFF_PAGES=%(pdp)d -DPERCENT_DIFF_BYTES_PER_PAGE=%(pdbpp)d %(prefetch)s -DPREFETCH_PAGES=%(pf_pages)d -DPREFETCH_BYTES_PER_PAGE=%(pf_bpp)d %(merge)s -g -S merge.c > %(bin)s.S" % d
                 os.system( gcc )
 
                 if KEYS is None:
