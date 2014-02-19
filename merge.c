@@ -133,11 +133,11 @@ void merge() {
     for (int j = 0; j < PAGE_SIZE; j += sizeof(__m128i)) {
       __m128i latest = _mm_load_si128( (__m128i*) (latestP+j) );
       __m128i ref = _mm_load_si128( (__m128i*) (refP+j) );
-      __m128i local = _mm_load_si128( (__m128i*) (localP+j) );
       __m128i latEqRef = _mm_cmpeq_epi8(latest, ref); // if latest == ref, latref is all ones
 
       if ( unlikely(!_mm_testc_si128(latEqRef, isTrue)) ) {
         // some bytes differ
+	__m128i local = _mm_load_si128( (__m128i*) (localP+j) );
         __m128i localEqRef = _mm_cmpeq_epi8(local, ref);
         if ( _mm_testc_si128(localEqRef, isTrue) ) {
           // local == ref
