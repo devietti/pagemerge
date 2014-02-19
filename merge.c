@@ -32,16 +32,16 @@ void allocate(char** pageArray) {
     assert( pageArray[j] != NULL );
   }
 
-  // all pages should be filled in
-  for (int i = 0; i < NUM_PAGES; i++) {
-    assert( pageArray[i] != NULL );
-  }
+  /* // all pages should be filled in */
+  /* for (int i = 0; i < NUM_PAGES; i++) { */
+  /*   assert( pageArray[i] != NULL ); */
+  /* } */
 }
 
 void initialize() {
   for (int i = 0; i < NUM_PAGES; i++) {
     if ( rand() % 100 >= PERCENT_DIFF_PAGES ) { // latest == ref
-      // fill page with random data?
+      // fill page with random data
       char r = rand() % 256;
       for (int j = 0; j < PAGE_SIZE; j++) {
         LATEST[i][j] = LOCAL[i][j] = REF[i][j] = r;
@@ -60,7 +60,7 @@ void initialize() {
   const int SIZE = 32<<20; // 32MB
   char* buf = (char*) calloc( 1, SIZE );
   for (int i = 0; i < SIZE; i++) {
-    buf[i] = 2;
+    buf[i] += 2;
   }
 }
 
@@ -126,10 +126,14 @@ void merge() {
     }
 #endif
 #ifdef SSE_MERGE 
+    const char* latestP = LATEST[i];
+    const char* refP = REF[i];
+    char* localP = LOCAL[i];
+
     for (int j = 0; j < PAGE_SIZE; j += sizeof(__m128i)) {
-      __m128i latest = _mm_load_si128( (__m128i*) &LATEST[i][j] );
-      __m128i ref = _mm_load_si128( (__m128i*) &REF[i][j] );
-      __m128i local = _mm_load_si128( (__m128i*) &LOCAL[i][j] );
+      __m128i latest = _mm_load_si128( (__m128i*) (latestP+j) );
+      __m128i ref = _mm_load_si128( (__m128i*) (refP+j) );
+      __m128i local = _mm_load_si128( (__m128i*) (localP+j) );
       __m128i latEqRef = _mm_cmpeq_epi8(latest, ref); // if latest == ref, latref is all ones
 
       if ( unlikely(!_mm_testc_si128(latEqRef, isTrue)) ) {
@@ -137,7 +141,7 @@ void merge() {
         __m128i localEqRef = _mm_cmpeq_epi8(local, ref);
         if ( _mm_testc_si128(localEqRef, isTrue) ) {
           // local == ref
-          _mm_stream_si128( (__m128i*) &LOCAL[i][j], latest );
+          _mm_stream_si128( (__m128i*) (localP+j), latest );
         } else {
           // (~latref) & localref, bytes where lat!=ref && local==ref
           __m128i latestMask = _mm_andnot_si128( latEqRef, localEqRef );
@@ -145,7 +149,7 @@ void merge() {
           __m128i latestBytes = _mm_and_si128(latestMask, latest);
           __m128i localBytes = _mm_andnot_si128(latestMask, local);
           latestBytes = _mm_or_si128(latestBytes, localBytes);
-          _mm_stream_si128( (__m128i*) &LOCAL[i][j], latestBytes );
+          _mm_stream_si128( (__m128i*) (localP+j), latestBytes );
         }
       }
     }
@@ -186,7 +190,7 @@ int main(int argc, char** argv) {
   bad = gettimeofday( &after, NULL );
   assert( !bad );
 
-  validate();
+  //validate();
   
   long elapsed_usec = ((after.tv_sec - before.tv_sec)*1000000) + (after.tv_usec - before.tv_usec);
   printf( "elapsed: %lu us \n", elapsed_usec );
