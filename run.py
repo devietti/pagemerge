@@ -12,12 +12,12 @@ def name(d):
     return n
 
 PERCENTS = range(10, 100, 10)
-RUNS = 20
+RUNS = 15
 
 KEYS = None
 fd = open('stats.csv', 'w')
 
-prefetchParams = itertools.product( ['-DPREFETCH',''], range(1,9), range(1,17) )
+prefetchParams = itertools.product( ['-DPREFETCH',''], range(1,5), [1,2,4,8,16] )
 #prefetchParams = itertools.product( ['-DPREFETCH',''], range(1,2), range(1,2) )
 prefetchParams = filter(lambda (p,a,b): p != '', prefetchParams) + [('',0,0)]
 
@@ -26,13 +26,16 @@ PERCENTS = [10]
 RUNS = 10
 prefetchParams = [('',0,0)]
 
+print "Total runs:", (len(PERCENTS)**2) + len(prefetchParams) * 4 * RUNS
+
 for pdp in PERCENTS:
     for pdbpp in PERCENTS:
         for (prefetch,pfPages,pfBpp) in prefetchParams:
-            for merge,binName in [ ('-DBYTE_MERGE','byte'),
+            for merge,binName in [ #('-DBYTE_MERGE','byte'),
                                    ('-DWORD_MERGE','word'), 
                                    ('-DSSE_MERGE','sse'),
-                                   ('-DSSE_MERGE_NOBRANCH','sse-nb') ]:
+                                   ('-DSSE_MERGE_NOBRANCH','sse-nb'),
+                                   ('-DSSE_MERGE_UNROLL','sse-unroll') ]:
                 d = {}
                 d['pdp'] = pdp
                 d['pdbpp'] = pdbpp

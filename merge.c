@@ -71,10 +71,12 @@ void validate() {
   }
 }
 
+__attribute__((optimize("unroll-loops")))
 void merge() {
-#ifdef SSE_MERGE
+#if defined(SSE_MERGE) || defined(SSE_MERGE_UNROLL)
   __m128i isTrue = _mm_set1_epi16(0xFFFF);
 #endif
+
   for (int i = 0; i < NUM_PAGES; ++i) {
     //merge in everything thats different between the ref and the latest committed page (that we haven't touched)
     
@@ -83,7 +85,8 @@ void merge() {
       for (int bpp = 0; bpp < PREFETCH_BYTES_PER_PAGE; bpp++) {
         __builtin_prefetch( &LATEST[i+pages][bpp], 0/*read*/, 3/*high temporal locality*/ );
         __builtin_prefetch( &REF[i+pages][bpp], 0/*read*/, 3/*high temporal locality*/ );
-        __builtin_prefetch( &LOCAL[i+pages][bpp], 1/*write*/, 3/*high temporal locality*/ );
+	// don't prefetch LOCAL since we generally don't need it
+        //__builtin_prefetch( &LOCAL[i+pages][bpp], 1/*write*/, 3/*high temporal locality*/ );
       }
     }
 #endif
@@ -169,6 +172,61 @@ void merge() {
       _mm_stream_si128( (__m128i*) &LOCAL[i][j], tmp );
     }
 #endif
+#ifdef SSE_MERGE_UNROLL
+    // manually unroll this loop since gcc won't do it; ugh
+    const char* latestP = LATEST[i];
+    const char* refP = REF[i];
+    char* localP = LOCAL[i];
+
+    for (int j = 0; j < PAGE_SIZE; j += sizeof(__m128i)) {
+      __m128i latest = _mm_load_si128( (__m128i*) (latestP+j) );
+      __m128i ref = _mm_load_si128( (__m128i*) (refP+j) );
+      __m128i latEqRef = _mm_cmpeq_epi8(latest, ref); // if latest == ref, latref is all ones
+
+      if ( unlikely(!_mm_testc_si128(latEqRef, isTrue)) ) {
+        // some bytes differ
+	__m128i local = _mm_load_si128( (__m128i*) (localP+j) );
+        __m128i localEqRef = _mm_cmpeq_epi8(local, ref);
+        if ( _mm_testc_si128(localEqRef, isTrue) ) {
+          // local == ref
+          _mm_stream_si128( (__m128i*) (localP+j), latest );
+        } else {
+          // (~latref) & localref, bytes where lat!=ref && local==ref
+          __m128i latestMask = _mm_andnot_si128( latEqRef, localEqRef );
+          // new = (latestMask & latest) | (~latestMask & local);
+          __m128i latestBytes = _mm_and_si128(latestMask, latest);
+          __m128i localBytes = _mm_andnot_si128(latestMask, local);
+          latestBytes = _mm_or_si128(latestBytes, localBytes);
+          _mm_stream_si128( (__m128i*) (localP+j), latestBytes );
+        }
+      }
+
+      j += sizeof(__m128i);
+      latest = _mm_load_si128( (__m128i*) (latestP+j) );
+      ref = _mm_load_si128( (__m128i*) (refP+j) );
+      latEqRef = _mm_cmpeq_epi8(latest, ref); // if latest == ref, latref is all ones
+
+      if ( unlikely(!_mm_testc_si128(latEqRef, isTrue)) ) {
+        // some bytes differ
+	__m128i local = _mm_load_si128( (__m128i*) (localP+j) );
+        __m128i localEqRef = _mm_cmpeq_epi8(local, ref);
+        if ( _mm_testc_si128(localEqRef, isTrue) ) {
+          // local == ref
+          _mm_stream_si128( (__m128i*) (localP+j), latest );
+        } else {
+          // (~latref) & localref, bytes where lat!=ref && local==ref
+          __m128i latestMask = _mm_andnot_si128( latEqRef, localEqRef );
+          // new = (latestMask & latest) | (~latestMask & local);
+          __m128i latestBytes = _mm_and_si128(latestMask, latest);
+          __m128i localBytes = _mm_andnot_si128(latestMask, local);
+          latestBytes = _mm_or_si128(latestBytes, localBytes);
+          _mm_stream_si128( (__m128i*) (localP+j), latestBytes );
+        }
+      }
+
+    }
+#endif
+
 
   }
 }
