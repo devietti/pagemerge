@@ -10,7 +10,7 @@
 #include <emmintrin.h> // for __m128i
 #include <smmintrin.h>
 
-#define NUM_PAGES 10000
+#define NUM_PAGES 3000
 #define PAGE_SIZE (2<<12) // 4KB
 
 #define likely(x)      __builtin_expect(!!(x), 1)
@@ -48,10 +48,11 @@ void initialize() {
       }
 
     } else { // latest != ref
-      for (int j = 0; j < PAGE_SIZE; j++) {
-        if ( rand() % 100 < PERCENT_DIFF_BYTES_PER_PAGE ) {
-          LATEST[i][j] = rand() % 256;
-        }
+      int dwpp = (rand() % MAX_DIFF_WORDS_PER_PAGE) + 1;
+      for (int j = 0; j < dwpp; j++) {
+        int* page = (int*) LATEST[i];
+        int offset = rand() % (PAGE_SIZE / sizeof(int));
+        page[offset] = rand();
       }
     }
   }
@@ -182,6 +183,29 @@ void merge() {
       __m128i latest = _mm_load_si128( (__m128i*) (latestP+j) );
       __m128i ref = _mm_load_si128( (__m128i*) (refP+j) );
       __m128i latEqRef = _mm_cmpeq_epi8(latest, ref); // if latest == ref, latref is all ones
+
+      if ( unlikely(!_mm_testc_si128(latEqRef, isTrue)) ) {
+        // some bytes differ
+	__m128i local = _mm_load_si128( (__m128i*) (localP+j) );
+        __m128i localEqRef = _mm_cmpeq_epi8(local, ref);
+        if ( _mm_testc_si128(localEqRef, isTrue) ) {
+          // local == ref
+          _mm_stream_si128( (__m128i*) (localP+j), latest );
+        } else {
+          // (~latref) & localref, bytes where lat!=ref && local==ref
+          __m128i latestMask = _mm_andnot_si128( latEqRef, localEqRef );
+          // new = (latestMask & latest) | (~latestMask & local);
+          __m128i latestBytes = _mm_and_si128(latestMask, latest);
+          __m128i localBytes = _mm_andnot_si128(latestMask, local);
+          latestBytes = _mm_or_si128(latestBytes, localBytes);
+          _mm_stream_si128( (__m128i*) (localP+j), latestBytes );
+        }
+      }
+
+      j += sizeof(__m128i);
+      latest = _mm_load_si128( (__m128i*) (latestP+j) );
+      ref = _mm_load_si128( (__m128i*) (refP+j) );
+      latEqRef = _mm_cmpeq_epi8(latest, ref); // if latest == ref, latref is all ones
 
       if ( unlikely(!_mm_testc_si128(latEqRef, isTrue)) ) {
         // some bytes differ

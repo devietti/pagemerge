@@ -1,7 +1,5 @@
 
-FLAGS=-Wall -ggdb -O3 -std=c99 -march=core2 -msse4.2 -DPERCENT_DIFF_PAGES=10 -DPERCENT_DIFF_BYTES_PER_PAGE=10 -DPREFETCH_PAGES=0 -DPREFETCH_BYTES_PER_PAGE=0
-
-#FLAGS=-Wall -O0 -g -std=c99 -march=core2 -msse4.2 -DPERCENT_DIFF_PAGES=80 -DPERCENT_DIFF_BYTES_PER_PAGE=80 -DPREFETCH_BYTES_PER_PAGE=0
+FLAGS=-Wall -O3 -std=c99 -march=core2 -msse4.2 -DPERCENT_DIFF_PAGES=100 -DMAX_DIFF_WORDS_PER_PAGE=10 -DPREFETCH_PAGES=0 -DPREFETCH_BYTES_PER_PAGE=0
 
 all: byte.bin byte-pf.bin word.bin word-pf.bin sse.bin sse-pf.bin sse-nb.bin sse-unroll.bin
 

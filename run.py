@@ -11,8 +11,8 @@ def name(d):
     n += ".bin"
     return n
 
-PERCENTS = range(10, 100, 10)
-RUNS = 15
+MAX_DIFF_WORDS = [10]
+RUNS = 50
 
 KEYS = None
 fd = open('stats.csv', 'w')
@@ -22,31 +22,31 @@ prefetchParams = itertools.product( ['-DPREFETCH',''], range(1,5), [1,2,4,8,16] 
 prefetchParams = filter(lambda (p,a,b): p != '', prefetchParams) + [('',0,0)]
 
 # debug parameters
-PERCENTS = [10]
-RUNS = 10
-prefetchParams = [('',0,0)]
+# MAX_DIFF_WORDS = [10]
+# RUNS = 10
+# prefetchParams = [('',0,0)]
 
-print "Total runs:", (len(PERCENTS)**2) + len(prefetchParams) * 4 * RUNS
+print "Total runs:", len(MAX_DIFF_WORDS) * len(prefetchParams) * 3 * RUNS
 
-for pdp in PERCENTS:
-    for pdbpp in PERCENTS:
+for pdp in [100]:
+    for mdwpp in MAX_DIFF_WORDS:
         for (prefetch,pfPages,pfBpp) in prefetchParams:
             for merge,binName in [ #('-DBYTE_MERGE','byte'),
                                    ('-DWORD_MERGE','word'), 
                                    ('-DSSE_MERGE','sse'),
-                                   ('-DSSE_MERGE_NOBRANCH','sse-nb'),
+                                   #('-DSSE_MERGE_NOBRANCH','sse-nb'),
                                    ('-DSSE_MERGE_UNROLL','sse-unroll') ]:
                 d = {}
                 d['pdp'] = pdp
-                d['pdbpp'] = pdbpp
+                d['mdwpp'] = mdwpp
                 d['prefetch'] = prefetch
                 d['pf_pages'] = pfPages
                 d['pf_bpp'] = pfBpp
                 d['merge'] = merge
                 d['binName'] = binName
                 d['bin'] = binName+".bin" # name(d)
-                gcc = "gcc -Wall -O3 -std=c99 -march=core2 -msse4.2 -DPERCENT_DIFF_PAGES=%(pdp)d -DPERCENT_DIFF_BYTES_PER_PAGE=%(pdbpp)d %(prefetch)s -DPREFETCH_PAGES=%(pf_pages)d -DPREFETCH_BYTES_PER_PAGE=%(pf_bpp)d %(merge)s merge.c -o %(bin)s" % d
-                #gcc = "gcc -Wall -O3 -std=c99 -march=core2 -msse4.2 -DPERCENT_DIFF_PAGES=%(pdp)d -DPERCENT_DIFF_BYTES_PER_PAGE=%(pdbpp)d %(prefetch)s -DPREFETCH_PAGES=%(pf_pages)d -DPREFETCH_BYTES_PER_PAGE=%(pf_bpp)d %(merge)s -g -S merge.c > %(bin)s.S" % d
+                gcc = "gcc -Wall -O3 -std=c99 -march=core2 -msse4.2 -DPERCENT_DIFF_PAGES=%(pdp)d -DMAX_DIFF_WORDS_PER_PAGE=%(mdwpp)d %(prefetch)s -DPREFETCH_PAGES=%(pf_pages)d -DPREFETCH_BYTES_PER_PAGE=%(pf_bpp)d %(merge)s merge.c -o %(bin)s" % d
+                #gcc = "gcc -Wall -O3 -std=c99 -march=core2 -msse4.2 -DPERCENT_DIFF_PAGES=%(pdp)d -DMAX_DIFF_WORDS_PER_PAGE=%(mdwpp)d %(prefetch)s -DPREFETCH_PAGES=%(pf_pages)d -DPREFETCH_BYTES_PER_PAGE=%(pf_bpp)d %(merge)s -g -S merge.c > %(bin)s.S" % d
                 os.system( gcc )
 
                 if KEYS is None:
